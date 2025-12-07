@@ -34,11 +34,21 @@ lw_clean$LogIncome <- log(lw_clean$MonthlyIncome + 1)
 # Ratios > 5 or 10 usually mean "Divided by Zero income". Cap at a reasonable high number.
 lw_clean$DebtRatio <- pmin(lw_clean$DebtRatio, 10)
 
-# Fit the model using the CLEAN data
+
+#split the data between test and validate 
+
+set.seed(123) 
+train_index <- sample(1:nrow(lw_clean), 0.8 * nrow(lw_clean))
+train_set <- lw_clean[train_index, ]  # The 80% used to teach the model
+val_set   <- lw_clean[-train_index, ] # The 20% used to test the model
+
+# Fit the model using the CLEAN train data
 
 #mod.low = glm(SeriousDlqin2yrs ~ RevolvingUtilizationOfUnsecuredLines + age + MonthlyIncome + DebtRatio, 
               #family = binomial(link = logit), 
               #data = lw_clean)
+
+
 mod.low = glm(SeriousDlqin2yrs ~ RevolvingUtilizationOfUnsecuredLines + 
                 age + I(age^2) +  # Added squared term for better fit
                 NumberOfTime30.59DaysPastDueNotWorse + 
@@ -50,7 +60,7 @@ mod.low = glm(SeriousDlqin2yrs ~ RevolvingUtilizationOfUnsecuredLines +
                 NumberOfTime60.89DaysPastDueNotWorse + 
                 NumberOfDependents, 
               family = binomial(link = "logit"), 
-              data = lw_clean)
+              data = train_set)
 
 
 summary(mod.low)
@@ -91,7 +101,36 @@ sensitivita
 specificita = tab[ 1, 1 ] /( tab [ 1, 2 ] + tab [ 1, 1 ] )
 specificita
 
-#ora testo il modello sul dataset "test" fornito da kaggle
+#testiamo sul validate set
+val_probs <- predict(mod.low, newdata = val_set, type = "response")
+
+#Calculate the AUC (Area Under Curve)
+# 1.0 is perfect, 0.5 is guessing
+roc_val <- roc(val_set$SeriousDlqin2yrs, val_probs)
+
+# Re-run the plot with visual enhancements
+plot(roc_val, 
+     col = "#0073C2FF",             
+     lwd = 3,                      
+     main = "ROC Curve (Validation Set)", 
+     print.auc = TRUE,              # Print the AUC score directly on the plot
+     auc.polygon = TRUE,            
+     auc.polygon.col = "#d9e9f7",   
+     grid = TRUE,                   
+     print.thres = "best",          
+     print.thres.pch = 19,         
+     print.thres.col = "red"       
+)
+
+# Calculate Confusion Matrix using the best threshold
+best_coords <- coords(roc_val, "best", ret = "threshold")
+best_thresh <- best_coords$threshold
+
+val_preds <- ifelse(val_probs > best_thresh, 1, 0)
+tab2=table(Actual = val_set$SeriousDlqin2yrs, Predicted = val_preds)
+round( sum( diag( tab2 ) ) / sum( tab2 ), 2 )
+
+#ora applico sul dataset "test" fornito da kaggle
 
 test_df <- read.csv("test.csv", header = TRUE)
 
