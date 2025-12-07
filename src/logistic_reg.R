@@ -69,38 +69,6 @@ summary(mod.low)
 hoslem.test(mod.low$y, fitted(mod.low), g = 6)
 
 
-# (Mis-)Classification Tables
-
-# Find the threshold that maximizes Sensitivity + Specificity
-best_coords <- coords(roc_obj, "best", ret = "threshold")
-print(best_coords)
-
-# Use this new threshold
-soglia <- best_coords$threshold
-
-# We use mod.low$y to ensure we represent exactly what the model used
-valori.reali    = mod.low$y  
-valori.predetti = as.numeric(fitted(mod.low) > soglia)
-# 1 if > threshold, 0 if <= threshold
-
-# Create the Confusion Matrix
-tab = table(Reali = valori.reali, Predetti = valori.predetti)
-print(tab)
-
-# % di casi classificati correttamente:
-round( sum( diag( tab ) ) / sum( tab ), 2 )
-
-# % di casi misclassificati:
-round( ( tab [ 1, 2 ] + tab [ 2, 1 ] ) / sum( tab ), 2 )
-
-# Sensitivity
-sensitivita =  tab [ 2, 2 ] /( tab [ 2, 1 ] + tab [ 2, 2 ] ) 
-sensitivita
-
-# Specificity 
-specificita = tab[ 1, 1 ] /( tab [ 1, 2 ] + tab [ 1, 1 ] )
-specificita
-
 #testiamo sul validate set
 val_probs <- predict(mod.low, newdata = val_set, type = "response")
 
@@ -128,7 +96,7 @@ best_thresh <- best_coords$threshold
 
 val_preds <- ifelse(val_probs > best_thresh, 1, 0)
 tab2=table(Actual = val_set$SeriousDlqin2yrs, Predicted = val_preds)
-round( sum( diag( tab2 ) ) / sum( tab2 ), 2 )
+round( sum( diag( tab2 ) ) / sum( tab2 ), 2 ) #percentuale di casi classificati nel modo corretto 
 
 #ora applico sul dataset "test" fornito da kaggle
 
@@ -152,7 +120,7 @@ test_clean$DebtRatio <- pmin(test_clean$DebtRatio, 10)
 test_probabilities <- predict(mod.low, newdata = test_clean, type = "response")
 
 # Apply the Threshold 
-test_predictions <- ifelse(test_probabilities > soglia, 1, 0)
+test_predictions <- ifelse(test_probabilities > best_thresh, 1, 0)
 
 # View the distribution the predictions
 table(test_predictions)
